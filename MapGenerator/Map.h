@@ -3,6 +3,7 @@
 #include "dDelaunay.h"
 #include "Structures.h"
 #include "Quadtree.h"
+#include "PerlinNoise.hpp"
 #include <vector>
 #include <map>
 
@@ -10,11 +11,6 @@ typedef QuadTree<center *> CenterPointerQT;
 
 // Forward Declarations
 class Vec2;
-namespace noise {
-	namespace module {
-		class Perlin;
-	}
-}
 
 class Map {
 public:
@@ -42,7 +38,7 @@ private:
 	int map_height;
 	double m_point_spread;
 	double z_coord;
-	noise::module::Perlin * noiseMap;
+	siv::PerlinNoise * noiseMap;
 	string m_seed;
 	CenterPointerQT m_centers_quadtree;
 

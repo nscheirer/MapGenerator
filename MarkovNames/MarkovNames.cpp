@@ -39,7 +39,7 @@ MarkovNames::MarkovNames(vector<string> original_names, int order, int length) {
 	this->order = order;
 	this->min_name_length = length;
 
-	for each (string s in original_names) {
+	for (string s : original_names) {
 		transform(s.begin(), s.end(), s.begin(), ::tolower);
 		ProcessName(s);
 	}
@@ -50,7 +50,7 @@ MarkovNames::MarkovNames(string original_names, int order, int length) {
 	this->order = order;
 	this->min_name_length = length;
 
-	for each (string s in split(original_names, ',')) {
+	for (string s : split(original_names, ',')) {
 		transform(s.begin(), s.end(), s.begin(), ::tolower);
 		ProcessName(s);
 	}
@@ -64,7 +64,7 @@ void MarkovNames::ResetGenerator(vector<string> original_names, int order, int l
 	this->order = order;
 	this->min_name_length = length;
 
-	for each (string name in original_names) {
+	for (string name : original_names) {
 		ProcessName(name);
 	}
 }
@@ -148,7 +148,7 @@ std::vector<std::string> MarkovNames::split(const std::string &s, char delim) {
 
 void MarkovNames::ClearVectors(){
 	v_samples.clear();
-	for each (pair<string, vector<char> > p in m_chains) {
+	for (pair<string, vector<char> > p : m_chains) {
 		p.second.clear();
 	}
 	m_chains.clear();

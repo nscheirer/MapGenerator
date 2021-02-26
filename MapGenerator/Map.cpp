@@ -1,10 +1,12 @@
 #include "Map.h"
 #include "Math/Vec2.h"
-#include "PoissonDiskSampling.h"
-#include "noise/noise.h"
+#include "../DiskSampling/PoissonDiskSampling.h"
+#include "PerlinNoise.hpp"
 #include <ctime>
 #include <queue>
 #include <SFML/System.hpp>
+
+#define UINT_MAX  (__INT_MAX__  *2U +1U)
 
 const vector<vector<Biome::Type> > Map::elevation_moisture_matrix = Map::MakeBiomeMatrix();
 
@@ -60,7 +62,7 @@ Map::Map(void) {}
 
 Map::~Map(void) {}
 
-Map::Map(int width, int height, double point_spread, string seed) : m_centers_quadtree(AABB(Vec2(width/2,height/2),Vec2(width/2,height/2)), 1){
+Map::Map(int width, int height, double point_spread, string seed) : m_centers_quadtree(AABB2D(Vec2(width/2,height/2),Vec2(width/2,height/2)), 1){
 	map_width = width;
 	map_height = height;
 	m_point_spread = point_spread;
@@ -143,7 +145,7 @@ void Map::Generate() {
 	timer.restart();
 	for (int i = 0; i < centers.size(); i++){
 		pair<Vec2,Vec2> aabb(centers[i]->GetBoundingBox());
-		m_centers_quadtree.Insert2(centers[i], AABB(aabb.first, aabb.second));
+		m_centers_quadtree.Insert2(centers[i], AABB2D(aabb.first, aabb.second));
 	}
 	cout << timer.getElapsedTime().asMicroseconds() / 1000.0 << " ms." << endl;
 }
@@ -161,10 +163,10 @@ void Map::GeneratePolygons() {
 }
 
 void Map::GenerateLand() {
-	noiseMap = new noise::module::Perlin();	
+	noiseMap = new siv::PerlinNoise();	
 
 	// Establezco los bordes del mapa
-	for each(corner * c in corners) {
+	for (corner * c : corners) {
 		if(!c->IsInsideBoundingBox(map_width, map_height)){
 			c->border = true;
 			c->ocean = true;
@@ -173,7 +175,7 @@ void Map::GenerateLand() {
 	}
 
 	// Determino lo que es agua y lo que es tierra
-	for each (corner * c in corners) {
+	for (corner * c : corners) {
 		c->water = !IsIsland(c->position);
 	}
 }
@@ -181,9 +183,9 @@ void Map::GenerateLand() {
 void Map::AssignOceanCoastLand(){
 	queue<center *> centers_queue;
 	// Quien es agua o border
-	for each (center * c in centers) {
+	for (center * c : centers) {
 		int adjacent_water = 0;
-		for each (corner * q in c->corners) {
+		for (corner * q : c->corners) {
 			if(q->border){
 				c->border = true;
 				c->ocean = true;
@@ -201,7 +203,7 @@ void Map::AssignOceanCoastLand(){
 	while(!centers_queue.empty()){
 		center * c = centers_queue.front();
 		centers_queue.pop();
-		for each (center * r in c->centers)	{
+		for (center * r : c->centers)	{
 			if(r->water && !r->ocean){
 				r->ocean = true;
 				centers_queue.push(r);
@@ -210,10 +212,10 @@ void Map::AssignOceanCoastLand(){
 	}
 
 	// Costas de center
-	for each (center * p in centers) {
+	for (center * p : centers) {
 		int num_ocean = 0;
 		int num_land = 0;
-		for each (center * q in p->centers) {
+		for (center * q : p->centers) {
 			num_ocean += q->ocean;
 			num_land += !q->water;
 		}
@@ -221,10 +223,10 @@ void Map::AssignOceanCoastLand(){
 	}
 
 	// Costas de corner
-	for each (corner * c in corners) {
+	for (corner * c : corners) {
 		int adj_ocean = 0;
 		int adj_land = 0;
-		for each (center * p in c->centers) {
+		for (center * p : c->centers) {
 			adj_ocean += (int) p->ocean;
 			adj_land += (int) !p->water;
 		}
@@ -236,7 +238,7 @@ void Map::AssignOceanCoastLand(){
 
 void Map::AssignCornerElevation(){
 	queue<corner *> corner_queue;
-	for each (corner * q in corners) {
+	for (corner * q : corners) {
 		if(q->border){
 			q->elevation = 0.0;
 			corner_queue.push(q);
@@ -249,7 +251,7 @@ void Map::AssignCornerElevation(){
 		corner * q = corner_queue.front();
 		corner_queue.pop();
 
-		for each (corner * s in q->corners) {
+		for (corner * s : q->corners) {
 			double new_elevation = q->elevation + 0.01;
 			if(!q->water && !s->water){
 				new_elevation += 1;
@@ -261,7 +263,7 @@ void Map::AssignCornerElevation(){
 		}
 	}
 
-	for each (corner * q in corners) {
+	for (corner * q : corners) {
 		if(q->water){
 			q->elevation = 0.0;
 		}
@@ -283,9 +285,9 @@ void Map::RedistributeElevations(){
 }
 
 void Map::AssignPolygonElevations(){
-	for each (center * p in centers) {
+	for (center * p : centers) {
 		double elevation_sum = 0.0;
-		for each (corner * q in p->corners) {
+		for (corner * q : p->corners) {
 			elevation_sum += q->elevation;
 		}
 		p->elevation = elevation_sum / p->corners.size();
@@ -293,9 +295,9 @@ void Map::AssignPolygonElevations(){
 }
 
 void Map::CalculateDownslopes(){
-	for each (corner * c in corners) {
+	for (corner * c : corners) {
 		corner * d = c;
-		for each (corner * q in c->corners) {
+		for (corner * q : c->corners) {
 			if(q->elevation < d->elevation){
 				d = q;
 			}
@@ -327,7 +329,7 @@ void Map::GenerateRivers(){
 void Map::AssignCornerMoisture(){
 	queue<corner *> corner_queue;
 	// Agua dulce
-	for each (corner * c in corners) {
+	for (corner * c : corners) {
 		if((c->water || c->river_volume > 0) && !c->ocean){
 			c->moisture = c->river_volume > 0 ? min(3.0, (0.2 * c->river_volume)) : 1.0;
 			corner_queue.push(c);
@@ -340,7 +342,7 @@ void Map::AssignCornerMoisture(){
 		corner * c = corner_queue.front();
 		corner_queue.pop();
 
-		for each (corner * r in c->corners)	{
+		for (corner * r : c->corners)	{
 			double new_moisture = c->moisture * 0.9;
 			if( new_moisture > r->moisture ){
 				r->moisture = new_moisture;
@@ -350,7 +352,7 @@ void Map::AssignCornerMoisture(){
 	}
 
 	// Agua salada
-	for each (corner * r in corners) {
+	for (corner * r : corners) {
 		if(r->ocean){
 			r->moisture = 1.0;
 			corner_queue.push(r);
@@ -360,7 +362,7 @@ void Map::AssignCornerMoisture(){
 		corner * c = corner_queue.front();
 		corner_queue.pop();
 
-		for each (corner * r in c->corners)	{
+		for (corner * r : c->corners)	{
 			double new_moisture = c->moisture * 0.3;
 			if( new_moisture > r->moisture ){
 				r->moisture = new_moisture;
@@ -382,9 +384,9 @@ void Map::RedistributeMoisture(){
 }
 
 void Map::AssignPolygonMoisture(){
-	for each (center * p in centers) {
+	for (center * p : centers) {
 		double new_moisture = 0.0;
-		for each (corner * q in p->corners){
+		for (corner * q : p->corners){
 			if(q->moisture > 1.0) q->moisture = 1.0;
 			new_moisture += q->moisture;
 		}
@@ -394,7 +396,7 @@ void Map::AssignPolygonMoisture(){
 
 void Map::AssignBiomes(){
 
-	for each (center * c in centers) {
+	for (center * c : centers) {
 		if(c->ocean){
 			c->biome = Biome::Ocean;
 		}else if(c->water){
@@ -425,15 +427,15 @@ void Map::FinishInfo(){
 		(*center_iter)->SortCorners();
 	}
 
-	for each (center * c  in centers) {
-		for each (edge * e in c->edges) {
+	for (center * c  : centers) {
+		for (edge * e : c->edges) {
 			center *aux_center = e->GetOpositeCenter(c);
 			if(aux_center != NULL)
 				c->centers.push_back(aux_center);
 		}
 	}
-	for each (corner * c  in corners) {
-		for each (edge * e in c->edges) {
+	for (corner * c  : corners) {
+		for (edge * e : c->edges) {
 			corner * aux_corner = e->GetOpositeCorner(c);
 			if(aux_corner != NULL)
 				c->corners.push_back(aux_corner);
@@ -443,7 +445,7 @@ void Map::FinishInfo(){
 
 vector<corner *> Map::GetLandCorners(){
 	vector<corner *> land_corners;
-	for each (corner * c in corners)
+	for (corner * c : corners)
 		if(!c->water)
 			land_corners.push_back(c);
 	return land_corners;
@@ -451,7 +453,7 @@ vector<corner *> Map::GetLandCorners(){
 
 vector<corner *> Map::GetLakeCorners(){
 	vector<corner *> lake_corners;
-	for each (corner * c in corners)
+	for (corner * c : corners)
 		if(c->water && !c->ocean)
 			lake_corners.push_back(c);
 	return lake_corners;
@@ -470,7 +472,7 @@ bool Map::IsIsland(Vec2 position){
 	position -= center_pos;
 	double x_coord = (position.x / map_width) * 4;
 	double y_coord = (position.y / map_height) * 4;
-	double noise_val = noiseMap->GetValue(x_coord, y_coord, z_coord);
+	double noise_val = noiseMap->noise3D(x_coord, y_coord, z_coord);
 
 	position /= min(map_width, map_height);
 	double radius = position.Length();
@@ -498,7 +500,7 @@ void Map::Triangulate(vector<del::vertex> puntos){
 
 	dela.Triangulate(v, tris);
 
-	for each (del::triangle t in tris) {		
+	for (del::triangle t : tris) {		
 		Vec2 pos_center_0( t.GetVertex(0)->GetX(), t.GetVertex(0)->GetY());
 		Vec2 pos_center_1( t.GetVertex(1)->GetX(), t.GetVertex(1)->GetY());
 		Vec2 pos_center_2( t.GetVertex(2)->GetX(), t.GetVertex(2)->GetY());
@@ -597,7 +599,7 @@ void Map::GeneratePoints(){
 	PoissonDiskSampling pds(800, 600, m_point_spread, 10);
 	vector<pair<double,double> > new_points = pds.Generate();
 	cout << "Generating " << new_points.size() << " points..." << endl;
-	for each (pair<double,double> p in new_points) {
+	for (pair<double,double> p : new_points) {
 		points.push_back(del::vertex((int) p.first, (int) p.second));
 	}
 	points.push_back(del::vertex(- map_width	,- map_height));
@@ -608,13 +610,13 @@ void Map::GeneratePoints(){
 
 void Map::LloydRelaxation(){
 	vector<del::vertex> new_points;
-	for each (center * p in centers) {
+	for (center * p : centers) {
 		if(!p->IsInsideBoundingBox(map_width, map_height)){
 			new_points.push_back(del::vertex((int)p->position.x, (int) p->position.y));
 			continue;
 		}
 		Vec2 center_centroid;		
-		for each (corner * q in p->corners)	{
+		for (corner * q : p->corners)	{
 			if(q->IsInsideBoundingBox(map_width, map_height)){
 				center_centroid += q->position;
 			}else{

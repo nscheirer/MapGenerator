@@ -309,7 +309,7 @@ void Delaunay::Triangulate(const vertexSet& vertices, triangleSet& output)
 	// triangles tot the output; remove_copy_if lets us do that in one go.
 	tIterator where = output.begin();
 	triangleHasVertex pred(vSuper);
-	for each (triangle t in workset) {
+	for (triangle t : workset) {
 		if(!pred(t)){
 			output.insert(output.begin(), t);
 		}

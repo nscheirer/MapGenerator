@@ -1,12 +1,45 @@
 #pragma once
 
-#include "Math\Vec2.h"
+#include "Math/Vec2.h"
 #include <vector>
 using namespace std;
 
 #include <SFML/System.hpp>
-// Forward declaration
-struct AABB;
+
+// Axis-aligned Bounding Box
+struct AABB2D {
+	// Center of the region
+	Vec2 m_pos;
+	// Vector to one of its corners (half the diagonal)
+	Vec2 m_half;
+
+	AABB2D(){};
+
+	AABB2D(Vec2 p_pos, Vec2 p_half){
+		m_pos = p_pos;
+		m_half = p_half;
+	}
+
+	bool Contains(const Vec2 p_point) const{
+		Vec2 l_min_point = m_pos - m_half;
+		if(p_point.x >= l_min_point.x && p_point.y >= l_min_point.y){
+			Vec2 l_max_point = m_pos + m_half;
+			return p_point.x <= l_max_point.x && p_point.y <= l_max_point.y;
+		}
+		return false;
+	}
+
+	bool Intersects(const AABB2D & p_sec) const{
+		double l_diff_x = abs(m_pos.x - p_sec.m_pos.x);
+		double l_diff_y = abs(m_pos.y - p_sec.m_pos.y);
+
+		if (l_diff_x > (m_half.x + p_sec.m_half.x) || l_diff_y > (m_half.y + p_sec.m_half.y)){
+			return false;
+		}
+
+		return true;
+	}
+};
 
 template<class T>
 class QuadTree {
@@ -30,7 +63,7 @@ public:
 		}
 	}
 
-	QuadTree(AABB p_boundary, int p_depth) {
+	QuadTree(AABB2D p_boundary, int p_depth) {
 		m_boundary = p_boundary;
 		m_divided = false;
 		m_branch_depth = p_depth;
@@ -46,7 +79,7 @@ public:
 		if (!m_divided) {	// Base case
 
 			// Insert the element if there is space in this leaf
-			if(m_elements.size() < C_NODE_CAPACITY){
+			if(m_elements.size() < 4){
 				m_elements.push_back(make_pair(p_element, p_pos));
 				return true;
 			}
@@ -65,7 +98,7 @@ public:
 		return false;
 	}
 
-	bool Insert(const T p_element, AABB p_range){
+	bool Insert(const T p_element, AABB2D p_range){
 		if(!m_boundary.Intersects(p_range))
 			return false;
 
@@ -94,7 +127,7 @@ public:
 		return true;
 	}
 
-	bool Insert2(const T p_element, AABB p_range){
+	bool Insert2(const T p_element, AABB2D p_range){
 		if(!m_boundary.Intersects(p_range))
 			return false;
 
@@ -161,7 +194,7 @@ public:
 			C_MAX_TREE_DEPTH = i;
 	}
 
-	AABB m_boundary;
+	AABB2D m_boundary;
 private:
 	void Subdivide() {
 		m_divided = true;
@@ -169,34 +202,34 @@ private:
 		Vec2 l_new_half = m_boundary.m_half / 2;
 
 		Vec2 l_nw_pos = m_boundary.m_pos - l_new_half;
-		AABB l_northWest(l_nw_pos, l_new_half);
+		AABB2D l_northWest(l_nw_pos, l_new_half);
 		m_northWest = new QuadTree<T>(l_northWest, m_branch_depth + 1);
 
 		Vec2 l_ne_pos(l_nw_pos.x + m_boundary.m_half.x, l_nw_pos.y);
-		AABB l_nothEast(l_ne_pos, l_new_half);
+		AABB2D l_nothEast(l_ne_pos, l_new_half);
 		m_northEast = new QuadTree<T>(l_nothEast, m_branch_depth + 1);
 
 		Vec2 l_se_pos = m_boundary.m_pos + l_new_half;
-		AABB l_southEast(l_se_pos, l_new_half);
+		AABB2D l_southEast(l_se_pos, l_new_half);
 		m_southEast = new QuadTree<T>(l_southEast, m_branch_depth + 1);
 
 		Vec2 l_sw_pos(l_nw_pos.x, l_nw_pos.y + m_boundary.m_half.y);
-		AABB l_southWest(l_sw_pos, l_new_half);
+		AABB2D l_southWest(l_sw_pos, l_new_half);
 		m_southWest = new QuadTree<T>(l_southWest, m_branch_depth + 1);
 
-		vector<pair<T, AABB> >::iterator iter;
-		for (iter = m_elements.begin(); iter != m_elements.end(); iter++){
-			if(m_northWest->m_boundary.Intersects(iter->second)){
-				m_northWest->Insert(iter->first, iter->second);
+		//vector<pair<T, AABB2D>>::iterator iter;
+		for (auto const& element: m_elements){
+			if(m_northWest->m_boundary.Intersects(element->second)){
+				m_northWest->Insert(element->first, element->second);
 			}
-			if(m_northEast->m_boundary.Intersects(iter->second)){
-				m_northEast->Insert(iter->first, iter->second);
+			if(m_northEast->m_boundary.Intersects(element->second)){
+				m_northEast->Insert(element->first, element->second);
 			}
-			if(m_southEast->m_boundary.Intersects(iter->second)){
-				m_southEast->Insert(iter->first, iter->second);
+			if(m_southEast->m_boundary.Intersects(element->second)){
+				m_southEast->Insert(element->first, element->second);
 			}
-			if(m_southWest->m_boundary.Intersects(iter->second)){
-				m_southWest->Insert(iter->first, iter->second);
+			if(m_southWest->m_boundary.Intersects(element->second)){
+				m_southWest->Insert(element->first, element->second);
 			}
 		}
 		m_elements.clear();
@@ -210,24 +243,24 @@ private:
 		Vec2 l_new_half = m_boundary.m_half / 2;
 
 		Vec2 l_nw_pos = m_boundary.m_pos - l_new_half;
-		AABB l_northWest(l_nw_pos, l_new_half);
+		AABB2D l_northWest(l_nw_pos, l_new_half);
 		m_northWest = new QuadTree<T>(l_northWest, m_branch_depth + 1);
 
 		Vec2 l_ne_pos(l_nw_pos.x + m_boundary.m_half.x, l_nw_pos.y);
-		AABB l_nothEast(l_ne_pos, l_new_half);
+		AABB2D l_nothEast(l_ne_pos, l_new_half);
 		m_northEast = new QuadTree<T>(l_nothEast, m_branch_depth + 1);
 
 		Vec2 l_se_pos = m_boundary.m_pos + l_new_half;
-		AABB l_southEast(l_se_pos, l_new_half);
+		AABB2D l_southEast(l_se_pos, l_new_half);
 		m_southEast = new QuadTree<T>(l_southEast, m_branch_depth + 1);
 
 		Vec2 l_sw_pos(l_nw_pos.x, l_nw_pos.y + m_boundary.m_half.y);
-		AABB l_southWest(l_sw_pos, l_new_half);
+		AABB2D l_southWest(l_sw_pos, l_new_half);
 		m_southWest = new QuadTree<T>(l_southWest, m_branch_depth + 1);
 	}
 
 	vector<T> m_elements;
-	vector<AABB> m_elements_regions;
+	vector<AABB2D> m_elements_regions;
 
 	QuadTree *m_northWest;
 	QuadTree *m_northEast;
@@ -241,38 +274,3 @@ private:
 
 template <class T>
 int QuadTree<T>::C_MAX_TREE_DEPTH = 6;
-
-// Axis-aligned Bounding Box
-struct AABB {
-	// Center of the region
-	Vec2 m_pos;
-	// Vector to one of its corners (half the diagonal)
-	Vec2 m_half;
-
-	AABB(){};
-
-	AABB(Vec2 p_pos, Vec2 p_half){
-		m_pos = p_pos;
-		m_half = p_half;
-	}
-
-	bool Contains(const Vec2 p_point) const{
-		Vec2 l_min_point = m_pos - m_half;
-		if(p_point.x >= l_min_point.x && p_point.y >= l_min_point.y){
-			Vec2 l_max_point = m_pos + m_half;
-			return p_point.x <= l_max_point.x && p_point.y <= l_max_point.y;
-		}
-		return false;
-	}
-
-	bool Intersects(const AABB & p_sec) const{
-		double l_diff_x = abs(m_pos.x - p_sec.m_pos.x);
-		double l_diff_y = abs(m_pos.y - p_sec.m_pos.y);
-
-		if (l_diff_x > (m_half.x + p_sec.m_half.x) || l_diff_y > (m_half.y + p_sec.m_half.y)){
-			return false;
-		}
-
-		return true;
-	}
-};

@@ -234,7 +234,7 @@ center * edge::GetOpositeCenter(center *c){
 }
 
 edge * corner::GetEdgeWith(corner *c){
-	for each (edge * e in edges)
+	for (edge * e : edges)
 		if(e->v0 == c || e->v1 == c)
 			return e;
 	return NULL;
@@ -308,7 +308,7 @@ center * corner::GetOpositeCenter( center *c0, center *c1 ) {
 
 center * corner::GetOpositeCenter( edge *e ) {
 	bool found = false;
-	for each (edge * ed in edges) {
+	for (edge * ed : edges) {
 		if(ed == e){
 			found = true;
 			break;
@@ -318,7 +318,7 @@ center * corner::GetOpositeCenter( edge *e ) {
 	if(!found)
 		return NULL;
 
-	for each (center * c in centers) {
+	for (center * c : centers) {
 		if(c != e->d0 && c != e->d1)
 			return c;
 	}

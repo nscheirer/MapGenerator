@@ -1,14 +1,11 @@
 
-#include "Map.h"
-#include "MarkovNames.h"
-
-#include "Structures.h"
+#include "../MapGenerator/Map.h"
+#include "../MarkovNames/MarkovNames.h"
+#include "../MapGenerator/Structures.h"
+#include "../MapGenerator/PerlinNoise.hpp"
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
-
-#include "noise/noise.h"
-using namespace noise;
 
 #include <iostream>
 using namespace std;
@@ -89,9 +86,9 @@ struct city {
 };
 
 #include <fstream>
-#include "PoissonDiskSampling.h"
+#include "../DiskSampling/PoissonDiskSampling.h"
 
-#include "Quadtree.h"
+#include "../MapGenerator/Quadtree.h"
 
 int main(){/*
 
@@ -102,6 +99,12 @@ int main(){/*
 
 	system("pause");
 	*/
+
+	sf::Font font;
+	if (!font.loadFromFile("FreeSans.ttf")) {
+		cout << "Failed to load font." << endl;
+		return 0;
+	}
 
 	vector<string> names;
 	ifstream names_file;
@@ -122,11 +125,11 @@ int main(){/*
 	sf::RenderWindow * app = new sf::RenderWindow(sf::VideoMode(WIDTH,HEIGHT,32), "Map Generator");
 	app->setFramerateLimit(60);
 
-	Map mapa(WIDTH, HEIGHT, 10, "");
+	Map mapa(WIDTH, HEIGHT, 10, "Sarah");
 
 	timer.restart();
 	mapa.Generate();
-	cout << timer.getElapsedTime().asMicroseconds() / 1000.0 << endl;
+	//cout << timer.getElapsedTime().asMicroseconds() / 1000.0 << endl;
 
 	vector<edge *> edges = mapa.GetEdges();
 	vector<corner *> corners = mapa.GetCorners();
@@ -194,7 +197,7 @@ int main(){/*
 				if(event.mouseButton.button == sf::Mouse::Button::Left) {
 					timer.restart();
 					selected_center = mapa.GetCenterAt(Vec2(event.mouseButton.x, event.mouseButton.y));
-					cout << timer.getElapsedTime().asMicroseconds() << endl;
+					//cout << timer.getElapsedTime().asMicroseconds() << endl;
 				}
 			}
 		}
@@ -207,7 +210,7 @@ int main(){/*
 			for(cells_iter = centers.begin(); cells_iter != centers.end(); cells_iter++){
 				drawCenter(*cells_iter, app);
 			}
-			cout << timer.getElapsedTime().asMicroseconds() << endl;
+			//cout << timer.getElapsedTime().asMicroseconds() << endl;
 		}
 		if(!edges.empty()){
 			edge::PVIter edge_iter, edges_end = edges.end();
@@ -232,7 +235,7 @@ int main(){/*
 				p.setPosition(ciudad.cell->position.x - POINT_SIZE, ciudad.cell->position.y - POINT_SIZE);
 				app->draw(p);
 
-				sf::Text name(sf::String(ciudad.name));
+				sf::Text name(sf::String(ciudad.name), font);
 				name.setPosition(ciudad.cell->position.x - POINT_SIZE, ciudad.cell->position.y - POINT_SIZE - 20);
 				name.setColor(sf::Color(sf::Uint8(34), sf::Uint8(34), sf::Uint8(34)));
 				name.setStyle(sf::Text::Bold);
